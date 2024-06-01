@@ -51,5 +51,5 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "Boss collaboration.sln"
+    "dotnet.defaultSolution": "BossRaid.sln"
 }
