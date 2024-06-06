@@ -5,23 +5,30 @@ TagManager:
   serializedVersion: 2
   tags:
   - Floor
+  - Item
+  - Weapon
+  - Melee
+  - Enemy
+  - Wall
+  - Bullet
+  - EnemyBullet
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - 
+  - Melee
   - Water
   - UI
   - 
   - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
+  - Floor
+  - Player
+  - PlayerBullet
+  - BulletCase
+  - Wall
+  - Enemy
+  - EnemyDead
+  - EnemyBullet
   - 
   - 
   - 
