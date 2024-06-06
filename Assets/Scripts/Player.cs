@@ -80,7 +80,9 @@ public class Player : MonoBehaviour
     void Move()
     {
         moveVec = new Vector3(hAxis, 0, vAxis).normalized;
+        moveVec = new Vector3(hAxis, 0, vAxis).normalized;
 
+        if (isDodge)
         if (isDodge)
         {
             moveVec = dodgeVec;
