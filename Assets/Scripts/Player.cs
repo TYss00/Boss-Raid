@@ -16,7 +16,7 @@ public class Player : MonoBehaviour
     public int maxAmmo;
     public int health;
     public int maxhealth;
-
+    public int currentItems;
 
     float hAxis;
     float vAxis;
@@ -25,11 +25,11 @@ public class Player : MonoBehaviour
     bool fDown; // 키를 누르고
     bool rDown; // 장전
     bool iDown;
-
+    bool oneDown; // 힐 버튼
 
     bool isJump;
     bool isDodge;
-    bool isFireReady = true; //딜레이가 준비되면
+    bool isFireReady = true; // 딜레이가 준비되면
     bool isBorder;
     bool isReload;
     bool isDamage;
@@ -43,9 +43,8 @@ public class Player : MonoBehaviour
     MeshRenderer[] meshs;
 
     GameObject nearObject;
-    Weapon equipWeapon;
+    public Weapon equipWeapon;
     float fireDelay;
-
 
     void Awake()
     {
@@ -64,6 +63,7 @@ public class Player : MonoBehaviour
         Reload();
         Dodge();
         Interation();
+        UseHealItem();
     }
 
     void GetInput()
@@ -75,14 +75,13 @@ public class Player : MonoBehaviour
         rDown = Input.GetButtonDown("Reload");
         fDown = Input.GetButton("Fire1");
         iDown = Input.GetButtonDown("Interation");
+        oneDown = Input.GetKeyDown(KeyCode.Alpha1);
     }
 
     void Move()
     {
         moveVec = new Vector3(hAxis, 0, vAxis).normalized;
-        moveVec = new Vector3(hAxis, 0, vAxis).normalized;
 
-        if (isDodge)
         if (isDodge)
         {
             moveVec = dodgeVec;
@@ -95,18 +94,9 @@ public class Player : MonoBehaviour
 
         if (!isBorder)
         {
-            if (WDown)
-            {
-                transform.position += moveVec * speed * 0.3f * Time.deltaTime;
-            }
-            else
-            {
-                transform.position += moveVec * speed * Time.deltaTime;
-            }
+            transform.position += moveVec * speed * (WDown ? 0.3f : 1f) * Time.deltaTime;
         }
 
-        //밑에 if문하고 같음 삼항 연산자
-        //transform.position += moveVec * speed * (WDown ? 0.3f : 1f) * Time.deltaTime;
         anim.SetBool("isRun", moveVec != Vector3.zero);
         anim.SetBool("isWalk", WDown);
     }
@@ -120,8 +110,7 @@ public class Player : MonoBehaviour
         if (fDown)
         {
             Ray ray = followCamera.ScreenPointToRay(Input.mousePosition);
-            RaycastHit rayHit;
-            if (Physics.Raycast(ray, out rayHit, 100))
+            if (Physics.Raycast(ray, out RaycastHit rayHit, 100))
             {
                 Vector3 nextVec = rayHit.point - transform.position;
                 nextVec.y = 0;
@@ -161,27 +150,23 @@ public class Player : MonoBehaviour
 
     void Reload()
     {
-        if (equipWeapon == null)
+        if (equipWeapon == null || equipWeapon.type == Weapon.Type.Melee || ammo == 0)
+        {
             return;
-
-        if (equipWeapon.type == Weapon.Type.Melee)
-            return;
-
-        if (ammo == 0)
-            return;
+        }
 
         if (rDown && !isJump && !isDodge && isFireReady)
         {
             anim.SetTrigger("doReload");
             isReload = true;
 
-            Invoke("ReloadOut", 1f); // 장전 시간 세팅은 1초로해둠
+            Invoke("ReloadOut", 1f); // 장전 시간 세팅은 1초로 해둠
         }
     }
 
     void ReloadOut()
     {
-        int reAmmo = ammo < equipWeapon.maxAmmo ? ammo : equipWeapon.maxAmmo;
+        int reAmmo = Mathf.Min(ammo, equipWeapon.maxAmmo);
         equipWeapon.curAmmo = reAmmo;
         ammo -= reAmmo;
         isReload = false;
@@ -210,7 +195,7 @@ public class Player : MonoBehaviour
     {
         if (iDown && nearObject != null && !isJump && !isDodge)
         {
-            if (nearObject.tag == "Weapon")
+            if (nearObject.tag == "Weapon" && equipWeapon == null)
             {
                 Item item = nearObject.GetComponent<Item>();
                 int weaponIndex = item.value;
@@ -219,7 +204,6 @@ public class Player : MonoBehaviour
                     hasWeapon[weaponIndex] = true;
                     weapons[weaponIndex].SetActive(true); // 무기 즉시 활성화
                     equipWeapon = weapons[weaponIndex].GetComponent<Weapon>();
-
 
                     Destroy(nearObject);
                 }
@@ -255,36 +239,49 @@ public class Player : MonoBehaviour
 
     void OnTriggerEnter(Collider other)
     {
-        if(other.tag == "EnemyBullet"){
-            if(!isDamage)
+        if (other.tag == "EnemyBullet")
+        {
+            if (!isDamage)
             {
                 Bullet enemyBullet = other.GetComponent<Bullet>();
-            health -= enemyBullet.damage;
-            if(other.GetComponent<Rigidbody>() != null)
+                health -= enemyBullet.damage;
+
+                bool isBossAtk = other.name == "Boss Melee Area";
+                StartCoroutine(OnDamage(isBossAtk));
+            }
+
+            if (other.GetComponent<Rigidbody>() != null)
             {
                 Destroy(other.gameObject);
-            }
-            StartCoroutine(OnDamage());
             }
         }
     }
 
-    IEnumerator OnDamage()
+    IEnumerator OnDamage(bool isBossAtk)
     {
         isDamage = true;
-        foreach(MeshRenderer mesh in meshs)
+        foreach (MeshRenderer mesh in meshs)
         {
             mesh.material.color = Color.red;
         }
 
-        yield return new WaitForSeconds(1f); // 맞고나서 무적시간 1초
+        if (isBossAtk)
+        {
+            rigid.AddForce(transform.forward * -25, ForceMode.Impulse);
+        }
 
-        foreach(MeshRenderer mesh in meshs)
+        yield return new WaitForSeconds(1f); // 맞고 나서 무적 시간 1초
+
+        isDamage = false;
+        foreach (MeshRenderer mesh in meshs)
         {
             mesh.material.color = Color.white;
         }
 
-        isDamage = false;
+        if (isBossAtk)
+        {
+            rigid.velocity = Vector3.zero;
+        }
     }
 
     void OnTriggerStay(Collider other)
@@ -303,4 +300,31 @@ public class Player : MonoBehaviour
         }
     }
 
+    void UseHealItem()
+    {
+        if (oneDown && currentItems > 0 && health < maxhealth)
+        {
+            UseItem();
+            GameManager.instance.UpdateItemUI(currentItems); // 아이템 사용 후 UI 업데이트
+        }
+    }
+
+    void UseItem()
+    {
+        if (currentItems > 0)
+        {
+            currentItems--;
+            Heal(20); //아이템 사용 시 20만큼 체력 회복
+        }
+    }
+
+    void Heal(int amount)
+    {
+        health += amount;
+        if (health > maxhealth)
+        {
+            health = maxhealth;
+        }
+    }
 }
+
